@@ -3,20 +3,19 @@ import { Input, Tag } from 'ant-design-vue'
 import { EditOutlined } from '@ant-design/icons-vue'
 import Sortable from 'sortablejs'
 import 'ant-design-vue/dist/antd.css'
-interface Data {
-  conditions: {
-    hwId: string
-    name: string
-  }[]
-  expression: string
-}
 
+interface Condition {
+  hwId?: string
+  id: string
+  name: string
+  cloned?: boolean
+}
 // 生成随机id
 const genID = () => {
   return Math.random().toString(36).substr(2)
 }
 
-const data = ref<Data>({
+const data = {
   conditions: [
     {
       hwId: 'b789c8b6-c920-11ed-932c-0255ac1202d7',
@@ -56,12 +55,12 @@ const data = ref<Data>({
     },
   ],
   expression: 'b789c8b6-c920-11ed-932c-0255ac1202d7 and b78a16d8-c920-11ed-932c-0255ac1202d7 and b78a3dea-c920-11ed-932c-0255ac1202d7 and b78a3dec-c920-11ed-932c-0255ac1202d7 and b78a64fe-c920-11ed-932c-0255ac1202d7 and (b78a8c10-c920-11ed-932c-0255ac1202d7 or b78ab322-c920-11ed-932c-0255ac1202d7) and (b78ada34-c920-11ed-932c-0255ac1202d7 or b78b0146-c920-11ed-932c-0255ac1202d7)',
-})
+}
 
-const convertData = () => {
-  const str = data.value.expression.replace(/\s+/g, '')
+const convertData = (): Condition[] => {
+  const str = data.expression.replace(/\s+/g, '')
   return str.split(/(and|or|\)|\()/).filter(Boolean).map((item) => {
-    const target = data.value.conditions.find(condition => item.includes(condition.hwId))
+    const target = data.conditions.find(condition => item.includes(condition.hwId))
     if (target) {
       return {
         ...target,
@@ -94,7 +93,6 @@ const originExpression = computed(() => {
 const onDelete = (i: number) => {
   arr.value.splice(i, 1)
 }
-
 const edit = ref(false)
 const toggleEdit = () => {
   edit.value = !edit.value
@@ -119,11 +117,10 @@ const list = ref([
   },
 ])
 const onClone = (item: any, index: number) => {
-  console.log(item)
-
   const clone = {
     ...item,
     id: genID(),
+    cloned: true,
   }
   arr.value.splice(index, 0, clone)
 }
@@ -142,7 +139,7 @@ onMounted(() => {
       const { newIndex, oldIndex, item } = evt
       if (newIndex != null && oldIndex != null) {
         const target = list.value[oldIndex]
-        arr.value.splice(newIndex, 0, target)
+        arr.value.splice(newIndex, 0, target as any)
       }
       // 删除item
       expressEl.removeChild(item)
@@ -164,6 +161,17 @@ onMounted(() => {
     },
   })
 })
+
+const validate = () => {
+  const conditions = arr.value.filter(i => i.hwId)
+  for (let i = 0; i < data.conditions.length; i++) {
+    const target = conditions.find(j => j.hwId === data.conditions[i].hwId)
+    if (!target) {
+      alert('条件不完整')
+      return false
+    }
+  }
+}
 </script>
 
 <template>
@@ -173,7 +181,7 @@ onMounted(() => {
       <EditOutlined class="cursor-pointer" @click="toggleEdit" />
     </div>
     <div v-show="edit">
-      <div class="w-1/2">
+      <div class="w-1/2 relative">
         <div id="list" class="flex items-center mb-3">
           <div v-for="element in list" :key="element.id">
             <Tag
@@ -195,12 +203,16 @@ onMounted(() => {
               {{ item.name }}
             </Tag>
             <div v-else @dblclick="onClone(item, index)">
-              <Tag>
+              <Tag :closable="item.cloned" @close="onDelete(index)">
                 {{ item.name }}
               </Tag>
             </div>
           </div>
         </div>
+
+        <button @click="validate">
+          确定
+        </button>
       </div>
 
       <div class="flex items-center gap-2 mt-3">
